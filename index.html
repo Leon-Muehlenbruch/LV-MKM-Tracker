@@ -244,6 +244,35 @@
   .completion-screen h2 { font-size: 1.6rem; margin-bottom: 8px; color: var(--success); }
   .completion-screen p { color: var(--text-muted); }
 
+  /* === ORDER TABLE === */
+  .order-table-wrap { margin-top: 24px; }
+  .order-table-wrap h3 { margin-bottom: 10px; font-size: 1.1rem; }
+  .order-table {
+    width: 100%; border-collapse: collapse; font-size: 0.85rem;
+  }
+  .order-table th {
+    text-align: left; padding: 8px 10px; background: var(--surface);
+    border-bottom: 2px solid var(--border); color: var(--text-muted); font-weight: 600;
+  }
+  .order-table td {
+    padding: 6px 10px; border-bottom: 1px solid var(--border);
+  }
+  .order-table tr:hover td { background: var(--surface2); }
+  .order-table .shelf-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px;
+    font-size: 0.75rem; font-weight: 600;
+  }
+  .order-table .shelf-badge.hauptregal { background: var(--shelf-hauptregal); }
+  .order-table .shelf-badge.commander { background: var(--shelf-commander); color: white; }
+  .order-table .shelf-badge.special { background: var(--shelf-special); color: var(--bg); }
+  .order-table .shelf-badge.unknown { background: var(--border); }
+  .order-table .start-btn {
+    background: var(--accent); border: none; color: white;
+    padding: 10px 24px; border-radius: 8px; cursor: pointer;
+    font-size: 1rem; font-weight: 600; margin-top: 16px; transition: all 0.2s;
+  }
+  .order-table .start-btn:hover { opacity: 0.85; }
+
   .toast {
     position: fixed; bottom: 24px; right: 24px; background: var(--surface);
     border: 1px solid var(--accent); color: var(--text); padding: 12px 20px;
@@ -259,8 +288,8 @@
 <nav>
   <div class="logo"><span>LV</span> MKM Tracker</div>
   <div class="nav-links">
-    <button id="nav-upload" class="active" onclick="showView('upload')">Bestellung</button>
     <button id="nav-config" onclick="showView('config')">Regale</button>
+    <button id="nav-upload" class="active" onclick="showView('upload')">Bestellung</button>
     <button id="nav-viewer" style="display:none" onclick="showView('viewer')">Karten</button>
   </div>
 </nav>
@@ -273,6 +302,7 @@
     <p>oder klicken zum Ausw&auml;hlen</p>
   </div>
   <input type="file" id="fileInput" accept=".csv" class="hidden-input">
+  <div id="orderTable"></div>
 </div>
 
 <!-- CONFIG VIEW -->
@@ -826,8 +856,46 @@ function sortAndDisplay(cards) {
     showToast(`Unbekannte Sets: ${unknownSets.join(', ')} — in den Regalen zuordnen!`);
   }
 
+  // Render table on upload page
+  renderOrderTable();
+
   // Show viewer nav button
   document.getElementById('nav-viewer').style.display = '';
+}
+
+function renderOrderTable() {
+  const container = document.getElementById('orderTable');
+  let rows = sortedCards.map((c, i) => {
+    const flag = LANG_FLAGS[c.language.toLowerCase()] || '';
+    const sCode = c.scryfallSet || c.edition;
+    const setInfo = setInfoCache[sCode] || setInfoCache[c.edition];
+    const setName = setInfo ? setInfo.name : c.edition.toUpperCase();
+    const shelfLabel = SHELF_LABELS[c.shelf] || 'Unbekannt';
+    const shelfClass = c.shelf;
+    return `<tr>
+      <td>${c.count}x</td>
+      <td>${flag} ${esc(c.name)}${c.foil ? ' <span class="foil-badge">Foil</span>' : ''}</td>
+      <td>${esc(setName)}</td>
+      <td>#${c.collectorNumber}</td>
+      <td>${esc(c.language)}</td>
+      <td><span class="shelf-badge ${shelfClass}">${shelfLabel}</span></td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `<div class="order-table-wrap">
+    <h3>${sortedCards.length} Karten geladen (sortiert)</h3>
+    <table class="order-table">
+      <thead><tr>
+        <th>#</th><th>Name</th><th>Set</th><th>Nr.</th><th>Sprache</th><th>Regal</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <button class="start-btn" onclick="startPicking()">Karten abholen starten &#8594;</button>
+  </div>`;
+}
+
+function startPicking() {
+  currentIndex = 0;
   showView('viewer');
   renderCard();
 }
