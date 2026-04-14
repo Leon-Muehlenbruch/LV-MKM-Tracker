@@ -485,7 +485,9 @@
   </div>
   <p style="color:var(--text-muted); margin-bottom:16px; font-size:0.9rem;">
     Füge Sets hinzu in der Reihenfolge wie sie im Regal stehen (links nach rechts, oben nach unten).
-    Du kannst per Drag & Drop die Reihenfolge ändern. Tippe den Set-Namen oder Code ein um zu suchen.
+    Du kannst per Drag &amp; Drop die Reihenfolge ändern. Tippe den Set-Namen oder Code ein um zu suchen.
+    <strong>Wichtig:</strong> Sets werden mit dem Cardmarket-Kürzel gespeichert (z.B. "mh3", "grn"). Wenn Cardmarket ein anderes Kürzel als Scryfall nutzt,
+    trage das Cardmarket-Kürzel in die <code>ckm-mapping.json</code> ein.
   </p>
   <div class="shelves-grid">
     <div class="shelf-card hauptregal">
@@ -539,6 +541,7 @@ let sortedCards = [];
 let currentIndex = 0;
 let setInfoCache = {};
 let searchDebounce = null;
+let ckmToScryfall = {}; // Cardmarket code -> Scryfall code mapping
 
 // Language to flag emoji mapping
 const LANG_FLAGS = {
@@ -743,6 +746,16 @@ function saveConfig() {
 }
 
 async function loadConfig() {
+  // Load cardmarket-to-scryfall mapping
+  try {
+    const resp = await fetch('ckm-mapping.json?t=' + Date.now());
+    if (resp.ok) {
+      ckmToScryfall = await resp.json();
+    }
+  } catch (e) {
+    console.warn('No ckm-mapping.json found');
+  }
+
   // Load from shelves.json in the repo (source of truth)
   try {
     const resp = await fetch('shelves.json?t=' + Date.now());
@@ -765,6 +778,18 @@ async function loadConfig() {
       }
     } catch (e) {}
   }
+}
+
+// Resolve a Cardmarket edition code to a Scryfall set code
+function resolveSetCode(ckmCode) {
+  const lower = ckmCode.toLowerCase();
+  // Direct match in Scryfall?
+  if (setInfoCache[lower]) return lower;
+  // Mapping table?
+  if (ckmToScryfall[lower]) return ckmToScryfall[lower];
+  // Try common patterns (Cardmarket often truncates)
+  // e.g., "wo" -> "woe", "ot" -> "otj"
+  return lower;
 }
 
 function exportConfig() {
@@ -864,10 +889,13 @@ function parseCSV(text) {
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCSVLine(lines[i]);
     if (cols.length <= Math.max(iName, iEdition)) continue;
+    const ckmEdition = cols[iEdition] ? cols[iEdition].trim().toLowerCase() : '';
+    const scryfallCode = resolveSetCode(ckmEdition);
     cards.push({
       count: iCount >= 0 ? parseInt(cols[iCount]) || 1 : 1,
       name: cols[iName] ? cols[iName].trim() : '',
-      edition: cols[iEdition] ? cols[iEdition].trim().toLowerCase() : '',
+      edition: ckmEdition,         // Original Cardmarket code (used for shelf lookup)
+      scryfallSet: scryfallCode,   // Resolved Scryfall code (used for images/icons)
       language: iLang >= 0 && cols[iLang] ? cols[iLang].trim() : 'English',
       foil: iFoil >= 0 && cols[iFoil] ? cols[iFoil].trim().toLowerCase() === 'yes' : false,
       collectorNumber: iNum >= 0 && cols[iNum] ? cols[iNum].trim() : '',
@@ -899,16 +927,17 @@ function parseCSVLine(line) {
 // ===================== SORTING =====================
 function sortAndDisplay(cards) {
   // Build a global set->shelf+position map
+  // The shelves.json stores Cardmarket codes (since that's what the CSV uses)
   const setPositions = {};
   ['hauptregal', 'commander', 'special'].forEach(shelf => {
     shelfConfig[shelf].forEach((code, idx) => {
-      setPositions[code] = { shelf, position: idx };
+      setPositions[code.toLowerCase()] = { shelf, position: idx };
     });
   });
 
-  // Assign shelf info to each card
+  // Assign shelf info to each card (try CKM code first, then scryfall code)
   const enriched = cards.map(card => {
-    const pos = setPositions[card.edition];
+    const pos = setPositions[card.edition] || setPositions[card.scryfallSet];
     return {
       ...card,
       shelf: pos ? pos.shelf : 'unknown',
@@ -930,9 +959,14 @@ function sortAndDisplay(cards) {
   sortedCards = enriched;
   currentIndex = 0;
 
+  // Warn about unknown sets
+  const unknownSets = [...new Set(enriched.filter(c => c.shelf === 'unknown').map(c => c.edition))];
+  if (unknownSets.length > 0) {
+    showToast(`${unknownSets.length} unbekannte Sets: ${unknownSets.join(', ')} — diese in der Regal-Konfiguration zuordnen!`);
+  }
+
   // Switch to viewer
   showView('viewer');
-  // Ensure nav shows viewer as active
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
 
   renderCard();
@@ -957,17 +991,18 @@ function renderCard() {
   const shelfChanged = !prevCard || prevCard.shelf !== card.shelf;
   const setChanged = !prevCard || prevCard.edition !== card.edition;
 
-  // Scryfall image URL
+  // Scryfall image URL (use resolved scryfall code)
   const langCode = LANG_CODES[card.language.toLowerCase()] || 'en';
+  const sCode = card.scryfallSet || card.edition;
   let imageUrl;
   if (langCode === 'en') {
-    imageUrl = `https://api.scryfall.com/cards/${card.edition}/${card.collectorNumber}?format=image&version=normal`;
+    imageUrl = `https://api.scryfall.com/cards/${sCode}/${card.collectorNumber}?format=image&version=normal`;
   } else {
-    imageUrl = `https://api.scryfall.com/cards/${card.edition}/${card.collectorNumber}/${langCode}?format=image&version=normal`;
+    imageUrl = `https://api.scryfall.com/cards/${sCode}/${card.collectorNumber}/${langCode}?format=image&version=normal`;
   }
 
-  // Set info
-  const setInfo = setInfoCache[card.edition];
+  // Set info (try scryfall code first, then original)
+  const setInfo = setInfoCache[sCode] || setInfoCache[card.edition];
   const setName = setInfo ? setInfo.name : card.edition.toUpperCase();
   const setIcon = setInfo ? setInfo.icon : '';
 
