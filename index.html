@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LV MKM Tracker</title>
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a2e;
+    --surface2: #16213e;
+    --accent: #e94560;
+    --accent2: #0f3460;
+    --text: #eee;
+    --text-muted: #999;
+    --border: #333;
+    --success: #4ecca3;
+    --shelf-hauptregal: #e94560;
+    --shelf-commander: #0f3460;
+    --shelf-special: #4ecca3;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* === NAV === */
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  nav .logo {
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  nav .logo span { color: var(--accent); }
+  nav .nav-links { display: flex; gap: 8px; }
+  nav button {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+  nav button:hover, nav button.active {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  /* === VIEWS === */
+  .view { display: none; padding: 24px; max-width: 900px; margin: 0 auto; }
+  .view.active { display: block; }
+
+  /* === UPLOAD VIEW === */
+  .drop-zone {
+    border: 3px dashed var(--border);
+    border-radius: 16px;
+    padding: 80px 40px;
+    text-align: center;
+    transition: all 0.3s;
+    cursor: pointer;
+    margin-top: 40px;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(233, 69, 96, 0.05);
+  }
+  .drop-zone h2 { font-size: 1.5rem; margin-bottom: 8px; }
+  .drop-zone p { color: var(--text-muted); }
+  .drop-zone .icon { font-size: 3rem; margin-bottom: 16px; }
+
+  /* === CONFIG VIEW === */
+  .config-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  .config-header h2 { font-size: 1.4rem; }
+  .shelves-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 768px) {
+    .shelves-grid { grid-template-columns: 1fr; }
+  }
+  .shelf-card {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 16px;
+    border: 2px solid var(--border);
+  }
+  .shelf-card h3 {
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .shelf-card h3 .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .shelf-card.hauptregal .dot { background: var(--shelf-hauptregal); }
+  .shelf-card.commander .dot { background: var(--shelf-commander); }
+  .shelf-card.special .dot { background: var(--shelf-special); }
+
+  .shelf-card .add-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .shelf-card input[type="text"] {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+  }
+  .shelf-card input[type="text"]::placeholder { color: var(--text-muted); }
+  .btn-add {
+    background: var(--accent);
+    border: none;
+    color: white;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+  .set-list {
+    list-style: none;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  .set-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin-bottom: 4px;
+    background: var(--bg);
+    font-size: 0.85rem;
+    cursor: grab;
+  }
+  .set-list li:active { cursor: grabbing; }
+  .set-list li .set-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .set-list li .set-info .pos {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    min-width: 20px;
+  }
+  .set-list li .set-icon {
+    width: 20px;
+    height: 20px;
+    filter: invert(1);
+  }
+  .set-list li .remove-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0 4px;
+  }
+  .set-list li .remove-btn:hover { color: var(--accent); }
+  .set-list li.drag-over {
+    border-top: 2px solid var(--accent);
+  }
+
+  .set-search-results {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    max-height: 200px;
+    overflow-y: auto;
+    position: absolute;
+    z-index: 50;
+    width: calc(100% - 70px);
+  }
+  .set-search-results .result-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+  }
+  .set-search-results .result-item:hover {
+    background: var(--accent2);
+  }
+  .set-search-results .result-item img {
+    width: 18px;
+    height: 18px;
+    filter: invert(1);
+  }
+  .set-search-results .result-item .set-code {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+  }
+
+  .shelf-input-wrapper {
+    position: relative;
+  }
+
+  /* === CARD VIEWER === */
+  .viewer-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding-top: 16px;
+  }
+
+  .shelf-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-size: 0.9rem;
+  }
+  .shelf-indicator .shelf-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+  }
+  .shelf-indicator .shelf-name { font-weight: 600; }
+
+  .set-header {
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .set-header .set-icon-large {
+    width: 48px;
+    height: 48px;
+    filter: invert(1);
+    margin-bottom: 4px;
+  }
+  .set-header .set-name {
+    font-size: 1.3rem;
+    font-weight: 700;
+  }
+
+  .card-info {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 20px;
+    width: 100%;
+    max-width: 480px;
+    text-align: center;
+  }
+  .card-info .card-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+  }
+  .card-info .card-meta {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+  }
+  .card-info .card-count {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 16px;
+  }
+
+  .card-image-wrapper {
+    width: 100%;
+    max-width: 340px;
+    margin: 0 auto 16px;
+    position: relative;
+  }
+  .card-image-wrapper img {
+    width: 100%;
+    border-radius: 12px;
+    display: block;
+  }
+  .card-image-wrapper .loading-spinner {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface2);
+    border-radius: 12px;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+  }
+
+  .nav-arrows {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  .nav-arrows button {
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    color: var(--text);
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    font-size: 1.4rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .nav-arrows button:hover:not(:disabled) {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .nav-arrows button:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+  .nav-arrows .progress {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    min-width: 80px;
+    text-align: center;
+  }
+
+  .summary-bar {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+  .summary-bar .summary-item {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  .summary-bar .summary-item.hauptregal { background: var(--shelf-hauptregal); }
+  .summary-bar .summary-item.commander { background: var(--shelf-commander); color: white; }
+  .summary-bar .summary-item.special { background: var(--shelf-special); color: var(--bg); }
+  .summary-bar .summary-item.unknown { background: var(--border); }
+
+  .flag { font-size: 1.2rem; }
+
+  /* === IMPORT/EXPORT === */
+  .config-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .config-actions button {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .config-actions button:hover { background: var(--accent2); }
+
+  /* === SHELF TRANSITION BANNER === */
+  .shelf-transition {
+    background: var(--surface);
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 12px;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+  .shelf-transition h3 { color: var(--accent); margin-bottom: 4px; }
+
+  /* Foil badge */
+  .foil-badge {
+    background: linear-gradient(135deg, #f0c27f, #fc5c7d, #6a82fb, #4ecca3);
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    color: var(--text);
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    z-index: 200;
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  /* Completion screen */
+  .completion-screen {
+    text-align: center;
+    padding: 60px 20px;
+  }
+  .completion-screen .check { font-size: 4rem; margin-bottom: 16px; }
+  .completion-screen h2 { font-size: 1.6rem; margin-bottom: 8px; color: var(--success); }
+  .completion-screen p { color: var(--text-muted); }
+
+  /* Hidden file input */
+  .hidden-input { display: none; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo"><span>LV</span> MKM Tracker</div>
+  <div class="nav-links">
+    <button id="nav-upload" class="active" onclick="showView('upload')">Bestellung</button>
+    <button id="nav-config" onclick="showView('config')">Regale</button>
+  </div>
+</nav>
+
+<!-- UPLOAD VIEW -->
+<div id="view-upload" class="view active">
+  <div class="drop-zone" id="dropZone">
+    <div class="icon">&#128230;</div>
+    <h2>CSV-Datei hier ablegen</h2>
+    <p>oder klicken zum Auswählen</p>
+  </div>
+  <input type="file" id="fileInput" accept=".csv" class="hidden-input">
+</div>
+
+<!-- CONFIG VIEW -->
+<div id="view-config" class="view">
+  <div class="config-header">
+    <h2>Regal-Konfiguration</h2>
+    <div class="config-actions">
+      <button onclick="exportConfig()">shelves.json speichern</button>
+      <button onclick="document.getElementById('importInput').click()">JSON importieren</button>
+      <button onclick="resetDraft()">Änderungen verwerfen</button>
+      <input type="file" id="importInput" accept=".json" class="hidden-input">
+    </div>
+  </div>
+  <p style="color:var(--text-muted); margin-bottom:16px; font-size:0.9rem;">
+    Füge Sets hinzu in der Reihenfolge wie sie im Regal stehen (links nach rechts, oben nach unten).
+    Du kannst per Drag & Drop die Reihenfolge ändern. Tippe den Set-Namen oder Code ein um zu suchen.
+  </p>
+  <div class="shelves-grid">
+    <div class="shelf-card hauptregal">
+      <h3><span class="dot"></span>Hauptregal</h3>
+      <div class="shelf-input-wrapper">
+        <div class="add-row">
+          <input type="text" id="input-hauptregal" placeholder="Set suchen..." oninput="searchSets('hauptregal')" onkeydown="handleSetInputKey(event, 'hauptregal')">
+          <button class="btn-add" onclick="addFirstResult('hauptregal')">+</button>
+        </div>
+        <div class="set-search-results" id="results-hauptregal" style="display:none"></div>
+      </div>
+      <ul class="set-list" id="list-hauptregal"></ul>
+    </div>
+    <div class="shelf-card commander">
+      <h3><span class="dot"></span>Commander</h3>
+      <div class="shelf-input-wrapper">
+        <div class="add-row">
+          <input type="text" id="input-commander" placeholder="Set suchen..." oninput="searchSets('commander')" onkeydown="handleSetInputKey(event, 'commander')">
+          <button class="btn-add" onclick="addFirstResult('commander')">+</button>
+        </div>
+        <div class="set-search-results" id="results-commander" style="display:none"></div>
+      </div>
+      <ul class="set-list" id="list-commander"></ul>
+    </div>
+    <div class="shelf-card special">
+      <h3><span class="dot"></span>Special</h3>
+      <div class="shelf-input-wrapper">
+        <div class="add-row">
+          <input type="text" id="input-special" placeholder="Set suchen..." oninput="searchSets('special')" onkeydown="handleSetInputKey(event, 'special')">
+          <button class="btn-add" onclick="addFirstResult('special')">+</button>
+        </div>
+        <div class="set-search-results" id="results-special" style="display:none"></div>
+      </div>
+      <ul class="set-list" id="list-special"></ul>
+    </div>
+  </div>
+</div>
+
+<!-- CARD VIEWER -->
+<div id="view-viewer" class="view">
+  <div class="viewer-container" id="viewerContent"></div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+// ===================== STATE =====================
+let allSets = []; // Scryfall sets cache
+let shelfConfig = { hauptregal: [], commander: [], special: [] };
+let sortedCards = [];
+let currentIndex = 0;
+let setInfoCache = {};
+let searchDebounce = null;
+
+// Language to flag emoji mapping
+const LANG_FLAGS = {
+  'english': '\u{1F1EC}\u{1F1E7}',
+  'german': '\u{1F1E9}\u{1F1EA}',
+  'french': '\u{1F1EB}\u{1F1F7}',
+  'italian': '\u{1F1EE}\u{1F1F9}',
+  'spanish': '\u{1F1EA}\u{1F1F8}',
+  'portuguese': '\u{1F1F5}\u{1F1F9}',
+  'japanese': '\u{1F1EF}\u{1F1F5}',
+  'korean': '\u{1F1F0}\u{1F1F7}',
+  'russian': '\u{1F1F7}\u{1F1FA}',
+  'chinese simplified': '\u{1F1E8}\u{1F1F3}',
+  'chinese traditional': '\u{1F1F9}\u{1F1FC}',
+};
+
+// Language to Scryfall lang code
+const LANG_CODES = {
+  'english': 'en', 'german': 'de', 'french': 'fr', 'italian': 'it',
+  'spanish': 'es', 'portuguese': 'pt', 'japanese': 'ja', 'korean': 'ko',
+  'russian': 'ru', 'chinese simplified': 'zhs', 'chinese traditional': 'zht',
+};
+
+const SHELF_COLORS = {
+  hauptregal: 'var(--shelf-hauptregal)',
+  commander: 'var(--shelf-commander)',
+  special: 'var(--shelf-special)',
+};
+
+const SHELF_LABELS = {
+  hauptregal: 'Hauptregal',
+  commander: 'Commander',
+  special: 'Special',
+};
+
+// ===================== INIT =====================
+document.addEventListener('DOMContentLoaded', async () => {
+  await fetchAllSets();
+  await loadConfig();
+  renderAllShelfLists();
+  setupDragDrop();
+  setupImport();
+  setupKeyboardNav();
+});
+
+// ===================== NAVIGATION =====================
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  const navBtn = document.getElementById('nav-' + name);
+  if (navBtn) navBtn.classList.add('active');
+}
+
+// ===================== SCRYFALL SETS =====================
+async function fetchAllSets() {
+  try {
+    const resp = await fetch('https://api.scryfall.com/sets');
+    const data = await resp.json();
+    allSets = data.data.filter(s => s.card_count > 0);
+    // Cache set info
+    allSets.forEach(s => {
+      setInfoCache[s.code] = { name: s.name, icon: s.icon_svg_uri, code: s.code };
+    });
+  } catch (e) {
+    console.error('Failed to fetch sets:', e);
+  }
+}
+
+// ===================== SET SEARCH =====================
+function searchSets(shelfKey) {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(() => doSearchSets(shelfKey), 150);
+}
+
+function doSearchSets(shelfKey) {
+  const input = document.getElementById('input-' + shelfKey);
+  const resultsDiv = document.getElementById('results-' + shelfKey);
+  const query = input.value.trim().toLowerCase();
+
+  if (!query || query.length < 2) {
+    resultsDiv.style.display = 'none';
+    return;
+  }
+
+  const existing = new Set(shelfConfig[shelfKey]);
+  const matches = allSets
+    .filter(s => !existing.has(s.code) && (
+      s.name.toLowerCase().includes(query) ||
+      s.code.toLowerCase().includes(query)
+    ))
+    .slice(0, 8);
+
+  if (matches.length === 0) {
+    resultsDiv.style.display = 'none';
+    return;
+  }
+
+  resultsDiv.innerHTML = matches.map(s => `
+    <div class="result-item" onclick="addSetToShelf('${shelfKey}', '${s.code}')">
+      <img src="${s.icon_svg_uri}" alt="" onerror="this.style.display='none'">
+      <span>${s.name}</span>
+      <span class="set-code">${s.code}</span>
+    </div>
+  `).join('');
+  resultsDiv.style.display = 'block';
+}
+
+function handleSetInputKey(e, shelfKey) {
+  if (e.key === 'Enter') {
+    addFirstResult(shelfKey);
+  } else if (e.key === 'Escape') {
+    document.getElementById('results-' + shelfKey).style.display = 'none';
+  }
+}
+
+function addFirstResult(shelfKey) {
+  const resultsDiv = document.getElementById('results-' + shelfKey);
+  const first = resultsDiv.querySelector('.result-item');
+  if (first) first.click();
+}
+
+function addSetToShelf(shelfKey, setCode) {
+  if (!shelfConfig[shelfKey].includes(setCode)) {
+    shelfConfig[shelfKey].push(setCode);
+    saveConfig();
+    renderShelfList(shelfKey);
+  }
+  document.getElementById('input-' + shelfKey).value = '';
+  document.getElementById('results-' + shelfKey).style.display = 'none';
+}
+
+function removeSetFromShelf(shelfKey, setCode) {
+  shelfConfig[shelfKey] = shelfConfig[shelfKey].filter(s => s !== setCode);
+  saveConfig();
+  renderShelfList(shelfKey);
+}
+
+// ===================== SHELF LIST RENDERING =====================
+function renderAllShelfLists() {
+  ['hauptregal', 'commander', 'special'].forEach(renderShelfList);
+}
+
+function renderShelfList(shelfKey) {
+  const ul = document.getElementById('list-' + shelfKey);
+  const sets = shelfConfig[shelfKey];
+  ul.innerHTML = sets.map((code, i) => {
+    const info = setInfoCache[code];
+    const name = info ? info.name : code.toUpperCase();
+    const icon = info ? `<img class="set-icon" src="${info.icon}" alt="" onerror="this.style.display='none'">` : '';
+    return `<li draggable="true"
+                ondragstart="onDragStart(event, '${shelfKey}', ${i})"
+                ondragover="onDragOver(event)"
+                ondragenter="onDragEnter(event)"
+                ondragleave="onDragLeave(event)"
+                ondrop="onDrop(event, '${shelfKey}', ${i})">
+      <span class="set-info">
+        <span class="pos">${i + 1}.</span>
+        ${icon}
+        <span>${name}</span>
+        <span style="color:var(--text-muted);font-size:0.75rem;text-transform:uppercase">${code}</span>
+      </span>
+      <button class="remove-btn" onclick="removeSetFromShelf('${shelfKey}','${code}')">&times;</button>
+    </li>`;
+  }).join('');
+}
+
+// ===================== DRAG & DROP REORDER =====================
+let dragShelf = null, dragIndex = null;
+
+function onDragStart(e, shelf, index) {
+  dragShelf = shelf;
+  dragIndex = index;
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function onDragOver(e) { e.preventDefault(); }
+function onDragEnter(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
+}
+function onDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+
+function onDrop(e, targetShelf, targetIndex) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (dragShelf === targetShelf && dragIndex !== null) {
+    const arr = shelfConfig[targetShelf];
+    const [item] = arr.splice(dragIndex, 1);
+    arr.splice(targetIndex, 0, item);
+    saveConfig();
+    renderShelfList(targetShelf);
+  }
+  dragShelf = null;
+  dragIndex = null;
+}
+
+// ===================== CONFIG PERSISTENCE =====================
+function saveConfig() {
+  // Save draft to localStorage (for in-session editing)
+  localStorage.setItem('lv-mkm-shelves-draft', JSON.stringify(shelfConfig));
+}
+
+async function loadConfig() {
+  // Load from shelves.json in the repo (source of truth)
+  try {
+    const resp = await fetch('shelves.json?t=' + Date.now());
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.hauptregal && data.commander && data.special) {
+        shelfConfig = data;
+      }
+    }
+  } catch (e) {
+    console.warn('Could not load shelves.json, using defaults:', e);
+  }
+  // Fallback: check localStorage for unsaved edits
+  const local = localStorage.getItem('lv-mkm-shelves-draft');
+  if (local) {
+    try {
+      const draft = JSON.parse(local);
+      if (draft.hauptregal && draft.commander && draft.special) {
+        shelfConfig = draft;
+      }
+    } catch (e) {}
+  }
+}
+
+function exportConfig() {
+  const blob = new Blob([JSON.stringify(shelfConfig, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'shelves.json';
+  a.click();
+  showToast('shelves.json heruntergeladen — ins Repo committen um dauerhaft zu speichern!');
+}
+
+function resetDraft() {
+  localStorage.removeItem('lv-mkm-shelves-draft');
+  location.reload();
+}
+
+function setupImport() {
+  document.getElementById('importInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (data.hauptregal && data.commander && data.special) {
+          shelfConfig = data;
+          saveConfig();
+          renderAllShelfLists();
+          showToast('Konfiguration importiert!');
+        }
+      } catch (err) {
+        showToast('Fehler beim Import');
+      }
+    };
+    reader.readAsText(file);
+  });
+}
+
+// ===================== CSV DRAG & DROP =====================
+function setupDragDrop() {
+  const zone = document.getElementById('dropZone');
+  const input = document.getElementById('fileInput');
+
+  zone.addEventListener('click', () => input.click());
+  input.addEventListener('change', (e) => {
+    if (e.target.files[0]) processCSV(e.target.files[0]);
+  });
+
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.endsWith('.csv')) {
+      processCSV(file);
+    } else {
+      showToast('Bitte eine CSV-Datei verwenden');
+    }
+  });
+}
+
+// ===================== CSV PARSING =====================
+function processCSV(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    const cards = parseCSV(text);
+    if (cards.length === 0) {
+      showToast('Keine Karten in der CSV gefunden');
+      return;
+    }
+    sortAndDisplay(cards);
+  };
+  reader.readAsText(file);
+}
+
+function parseCSV(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+  if (lines.length < 2) return [];
+
+  // Parse header
+  const header = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
+  const iCount = header.indexOf('count');
+  const iName = header.indexOf('name');
+  const iEdition = header.indexOf('edition');
+  const iLang = header.indexOf('language');
+  const iFoil = header.indexOf('foil');
+  const iNum = header.indexOf('collector number');
+
+  if (iName === -1 || iEdition === -1) {
+    showToast('CSV-Format nicht erkannt (brauche mindestens Name und Edition)');
+    return [];
+  }
+
+  const cards = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i]);
+    if (cols.length <= Math.max(iName, iEdition)) continue;
+    cards.push({
+      count: iCount >= 0 ? parseInt(cols[iCount]) || 1 : 1,
+      name: cols[iName] ? cols[iName].trim() : '',
+      edition: cols[iEdition] ? cols[iEdition].trim().toLowerCase() : '',
+      language: iLang >= 0 && cols[iLang] ? cols[iLang].trim() : 'English',
+      foil: iFoil >= 0 && cols[iFoil] ? cols[iFoil].trim().toLowerCase() === 'yes' : false,
+      collectorNumber: iNum >= 0 && cols[iNum] ? cols[iNum].trim() : '',
+    });
+  }
+  return cards.filter(c => c.name && c.edition);
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
+      else if (ch === '"') { inQuotes = false; }
+      else { current += ch; }
+    } else {
+      if (ch === '"') { inQuotes = true; }
+      else if (ch === ',' || ch === ';') { result.push(current); current = ''; }
+      else { current += ch; }
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+// ===================== SORTING =====================
+function sortAndDisplay(cards) {
+  // Build a global set->shelf+position map
+  const setPositions = {};
+  ['hauptregal', 'commander', 'special'].forEach(shelf => {
+    shelfConfig[shelf].forEach((code, idx) => {
+      setPositions[code] = { shelf, position: idx };
+    });
+  });
+
+  // Assign shelf info to each card
+  const enriched = cards.map(card => {
+    const pos = setPositions[card.edition];
+    return {
+      ...card,
+      shelf: pos ? pos.shelf : 'unknown',
+      shelfPosition: pos ? pos.position : 9999,
+    };
+  });
+
+  // Sort: by shelf order (hauptregal, commander, special, unknown), then position, then collector number
+  const shelfOrder = { hauptregal: 0, commander: 1, special: 2, unknown: 3 };
+  enriched.sort((a, b) => {
+    if (shelfOrder[a.shelf] !== shelfOrder[b.shelf]) return shelfOrder[a.shelf] - shelfOrder[b.shelf];
+    if (a.shelfPosition !== b.shelfPosition) return a.shelfPosition - b.shelfPosition;
+    // Same set: sort by collector number numerically
+    const numA = parseInt(a.collectorNumber) || 0;
+    const numB = parseInt(b.collectorNumber) || 0;
+    return numA - numB;
+  });
+
+  sortedCards = enriched;
+  currentIndex = 0;
+
+  // Switch to viewer
+  showView('viewer');
+  // Ensure nav shows viewer as active
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+
+  renderCard();
+}
+
+// ===================== CARD RENDERING =====================
+function renderCard() {
+  const container = document.getElementById('viewerContent');
+
+  if (currentIndex >= sortedCards.length) {
+    container.innerHTML = `
+      <div class="completion-screen">
+        <div class="check">&#10003;</div>
+        <h2>Alle Karten abgearbeitet!</h2>
+        <p>${sortedCards.length} Karten wurden erfolgreich durchgearbeitet.</p>
+      </div>`;
+    return;
+  }
+
+  const card = sortedCards[currentIndex];
+  const prevCard = currentIndex > 0 ? sortedCards[currentIndex - 1] : null;
+  const shelfChanged = !prevCard || prevCard.shelf !== card.shelf;
+  const setChanged = !prevCard || prevCard.edition !== card.edition;
+
+  // Scryfall image URL
+  const langCode = LANG_CODES[card.language.toLowerCase()] || 'en';
+  let imageUrl;
+  if (langCode === 'en') {
+    imageUrl = `https://api.scryfall.com/cards/${card.edition}/${card.collectorNumber}?format=image&version=normal`;
+  } else {
+    imageUrl = `https://api.scryfall.com/cards/${card.edition}/${card.collectorNumber}/${langCode}?format=image&version=normal`;
+  }
+
+  // Set info
+  const setInfo = setInfoCache[card.edition];
+  const setName = setInfo ? setInfo.name : card.edition.toUpperCase();
+  const setIcon = setInfo ? setInfo.icon : '';
+
+  // Language flag
+  const flag = LANG_FLAGS[card.language.toLowerCase()] || '';
+
+  // Summary counts
+  const shelfCounts = {};
+  sortedCards.forEach(c => {
+    shelfCounts[c.shelf] = (shelfCounts[c.shelf] || 0) + 1;
+  });
+
+  // Build HTML
+  let html = '';
+
+  // Summary bar
+  html += '<div class="summary-bar">';
+  ['hauptregal', 'commander', 'special', 'unknown'].forEach(s => {
+    if (shelfCounts[s]) {
+      const label = SHELF_LABELS[s] || 'Unbekannt';
+      html += `<span class="summary-item ${s}">${label}: ${shelfCounts[s]}</span>`;
+    }
+  });
+  html += '</div>';
+
+  // Shelf transition banner
+  if (shelfChanged && card.shelf !== 'unknown') {
+    html += `<div class="shelf-transition">
+      <h3>&#8594; Wechsel zu: ${SHELF_LABELS[card.shelf] || card.shelf}</h3>
+    </div>`;
+  }
+
+  // Shelf indicator
+  if (card.shelf !== 'unknown') {
+    html += `<div class="shelf-indicator">
+      <span class="shelf-dot" style="background:${SHELF_COLORS[card.shelf] || 'var(--border)'}"></span>
+      <span class="shelf-name">${SHELF_LABELS[card.shelf] || card.shelf}</span>
+    </div>`;
+  } else {
+    html += `<div class="shelf-indicator">
+      <span class="shelf-dot" style="background:var(--border)"></span>
+      <span class="shelf-name" style="color:var(--accent)">Unbekanntes Set: ${card.edition}</span>
+    </div>`;
+  }
+
+  // Set header
+  html += `<div class="set-header">
+    ${setIcon ? `<img class="set-icon-large" src="${setIcon}" alt="" onerror="this.style.display='none'">` : ''}
+    <div class="set-name">${setName}</div>
+  </div>`;
+
+  // Card info
+  html += `<div class="card-info">
+    <div class="card-name-row">
+      <span class="flag">${flag}</span>
+      <span>${escapeHtml(card.name)}</span>
+      ${card.foil ? '<span class="foil-badge">Foil</span>' : ''}
+    </div>
+    <div class="card-meta">#${card.collectorNumber} &middot; ${card.language}</div>
+    <div class="card-count">Anzahl: ${card.count}x</div>
+    <div class="card-image-wrapper">
+      <div class="loading-spinner" id="imgSpinner">Bild wird geladen...</div>
+      <img src="${imageUrl}"
+           alt="${escapeHtml(card.name)}"
+           onload="document.getElementById('imgSpinner').style.display='none'"
+           onerror="document.getElementById('imgSpinner').textContent='Bild nicht verfügbar'"
+           style="position:relative; z-index:1;">
+    </div>
+  </div>`;
+
+  // Navigation arrows
+  html += `<div class="nav-arrows">
+    <button onclick="navigate(-1)" ${currentIndex === 0 ? 'disabled' : ''} title="Zurück (←)">&#8592;</button>
+    <span class="progress">${currentIndex + 1} / ${sortedCards.length}</span>
+    <button onclick="navigate(1)" title="Weiter (→)">&#8594;</button>
+  </div>`;
+
+  container.innerHTML = html;
+}
+
+function navigate(delta) {
+  currentIndex += delta;
+  if (currentIndex < 0) currentIndex = 0;
+  renderCard();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Keyboard navigation
+function setupKeyboardNav() {
+  document.addEventListener('keydown', (e) => {
+    // Only in viewer mode
+    if (!document.getElementById('view-viewer').classList.contains('active')) return;
+    // Don't capture if user is typing in an input
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    if (e.key === 'ArrowRight' || e.key === ' ') {
+      e.preventDefault();
+      navigate(1);
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      navigate(-1);
+    }
+  });
+}
+
+// ===================== UTILS =====================
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function showToast(msg) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// Close search results when clicking outside
+document.addEventListener('click', (e) => {
+  ['hauptregal', 'commander', 'special'].forEach(shelf => {
+    const wrapper = document.getElementById('results-' + shelf);
+    const input = document.getElementById('input-' + shelf);
+    if (!wrapper.contains(e.target) && e.target !== input) {
+      wrapper.style.display = 'none';
+    }
+  });
+});
+</script>
+
+</body>
+</html>
