@@ -85,10 +85,16 @@
   .binder-slot.filled { background: var(--accent2); border: 1px solid rgba(255,255,255,0.15); }
   .binder-slot:hover { transform: scale(1.05); z-index: 2; }
   .binder-slot .binder-label {
-    font-weight: 600; font-size: 0.55rem; line-height: 1.15;
-    word-break: break-word; overflow: hidden; text-overflow: ellipsis;
-    max-height: 100%; width: 100%;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    width: 100%; overflow: hidden;
   }
+  .binder-slot .binder-entry {
+    display: flex; align-items: center; gap: 2px;
+  }
+  .binder-slot .binder-entry img {
+    width: 18px; height: 18px; filter: invert(1); flex-shrink: 0;
+  }
+  .binder-slot .binder-entry .lang-flag { font-size: 0.65rem; }
   .binder-slot .binder-sub { font-size: 0.55rem; color: var(--text-muted); margin-top: 1px; }
   .binder-slot .binder-order {
     position: absolute; top: 1px; right: 3px; font-size: 0.5rem;
@@ -318,6 +324,11 @@ const LANG_CODES = {
   'portuguese':'pt','japanese':'ja','korean':'ko','russian':'ru',
   'chinese simplified':'zhs','chinese traditional':'zht'
 };
+const LANG_CODE_FLAGS = {
+  'en':'\u{1F1EC}\u{1F1E7}','de':'\u{1F1E9}\u{1F1EA}','fr':'\u{1F1EB}\u{1F1F7}',
+  'it':'\u{1F1EE}\u{1F1F9}','es':'\u{1F1EA}\u{1F1F8}','pt':'\u{1F1F5}\u{1F1F9}',
+  'ja':'\u{1F1EF}\u{1F1F5}','ko':'\u{1F1F0}\u{1F1F7}','ru':'\u{1F1F7}\u{1F1FA}'
+};
 const SHELF_COLORS = { hauptregal:'var(--shelf-hauptregal)', commander:'var(--shelf-commander)', special:'var(--shelf-special)' };
 const SHELF_LABELS = { hauptregal:'Hauptregal', commander:'Commander', special:'Special' };
 
@@ -479,15 +490,17 @@ function renderShelves() {
           const hasSets = binder && binder.length > 0 && binder.some(x => x);
           slot.className = 'binder-slot ' + (hasSets ? 'filled' : 'empty');
           if (hasSets) {
-            const labels = binder.map(entry => {
+            const entriesHtml = binder.map(entry => {
               const [code, lang] = entry.split(':');
-              const info = setInfoCache[resolveSetCode(code)];
-              const name = info ? info.code.toUpperCase() : code.toUpperCase();
-              return lang ? `${name} (${lang.toUpperCase()})` : name;
-            });
+              const resolved = resolveSetCode(code);
+              const info = setInfoCache[resolved];
+              const icon = info ? `<img src="${info.icon}" alt="${code}" onerror="this.outerHTML='<span style=\\'font-size:0.6rem\\'>${code.toUpperCase()}</span>'">` : `<span style="font-size:0.6rem">${code.toUpperCase()}</span>`;
+              const flag = lang ? (LANG_CODE_FLAGS[lang] || '') : '';
+              return `<span class="binder-entry">${icon}${flag ? `<span class="lang-flag">${flag}</span>` : ''}</span>`;
+            }).join('');
             slot.innerHTML = `
               <span class="binder-order">${orderNum}</span>
-              <span class="binder-label">${labels.join(', ')}</span>
+              <span class="binder-label">${entriesHtml}</span>
             `;
           } else {
             slot.innerHTML = `<span class="binder-order" style="position:static;opacity:0.4">${orderNum}</span>`;
