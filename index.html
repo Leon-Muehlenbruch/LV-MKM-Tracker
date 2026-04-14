@@ -105,12 +105,6 @@
     min-width: 340px; max-width: 500px; border: 1px solid var(--border);
   }
   .modal h3 { margin-bottom: 12px; }
-  .modal label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px; margin-top: 12px; }
-  .modal input, .modal textarea {
-    width: 100%; background: var(--bg); border: 1px solid var(--border);
-    color: var(--text); padding: 8px 12px; border-radius: 6px; font-size: 0.9rem;
-  }
-  .modal textarea { min-height: 80px; font-family: monospace; resize: vertical; }
   .modal .modal-actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
   .modal .modal-actions button {
     padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border);
@@ -119,6 +113,45 @@
   .modal .btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
   .modal .btn-secondary { background: var(--surface2); color: var(--text); }
   .modal .btn-danger { background: #c0392b; color: white; border-color: #c0392b; }
+
+  .entry-rows { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+  .entry-row {
+    display: flex; gap: 8px; align-items: center;
+    background: var(--bg); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border);
+  }
+  .entry-row .set-select-wrapper { flex: 1; position: relative; }
+  .entry-row .set-search-input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: 6px 10px; border-radius: 4px; font-size: 0.85rem;
+  }
+  .entry-row .set-dropdown {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 10;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+    max-height: 180px; overflow-y: auto;
+  }
+  .entry-row .set-dropdown-item {
+    padding: 6px 10px; cursor: pointer; font-size: 0.8rem;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .entry-row .set-dropdown-item:hover { background: var(--accent2); }
+  .entry-row .set-dropdown-item img { width: 16px; height: 16px; filter: invert(1); }
+  .entry-row .set-dropdown-item .code { color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; }
+  .entry-row select {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: 6px 8px; border-radius: 4px; font-size: 0.85rem;
+    min-width: 90px;
+  }
+  .entry-row .remove-entry {
+    background: none; border: none; color: var(--text-muted); cursor: pointer;
+    font-size: 1.2rem; padding: 0 4px; line-height: 1;
+  }
+  .entry-row .remove-entry:hover { color: var(--accent); }
+  .add-entry-btn {
+    background: var(--surface2); border: 1px dashed var(--border); color: var(--text-muted);
+    padding: 8px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+    text-align: center; margin-top: 4px; transition: all 0.15s;
+  }
+  .add-entry-btn:hover { border-color: var(--accent); color: var(--text); }
 
   .config-actions {
     display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;
@@ -480,10 +513,54 @@ function resizeShelf(shelfKey, dim, value) {
 }
 
 // ===================== BINDER EDITOR MODAL =====================
+let modalState = { shelfKey: '', row: 0, col: 0, binderIdx: 0, entries: [] };
+
 function openBinderEditor(shelfKey, row, col, binderIdx) {
   const binder = shelfConfig[shelfKey].grid[row][col][binderIdx];
-  const currentValue = binder.join(', ');
+  // Parse existing entries into {set, lang} objects
+  modalState = {
+    shelfKey, row, col, binderIdx,
+    entries: binder.filter(e => e).map(entry => {
+      const [code, lang] = entry.split(':');
+      return { set: code, lang: lang || 'all' };
+    })
+  };
+  renderModal();
+}
+
+function renderModal() {
+  const { shelfKey, row, col, binderIdx, entries } = modalState;
   const mc = document.getElementById('modalContainer');
+
+  let rowsHtml = '';
+  entries.forEach((entry, i) => {
+    const info = setInfoCache[resolveSetCode(entry.set)];
+    const displayName = info ? `${info.name} (${entry.set.toUpperCase()})` : entry.set.toUpperCase();
+    rowsHtml += `
+      <div class="entry-row">
+        <div class="set-select-wrapper">
+          <input class="set-search-input" id="setInput${i}" value="${esc(displayName)}"
+                 onfocus="this.select(); showSetDropdown(${i})"
+                 oninput="filterSetDropdown(${i})"
+                 data-set-code="${esc(entry.set)}">
+          <div class="set-dropdown" id="setDropdown${i}" style="display:none"></div>
+        </div>
+        <select id="langSelect${i}" onchange="updateEntryLang(${i}, this.value)">
+          <option value="all" ${entry.lang==='all'?'selected':''}>Alle</option>
+          <option value="en" ${entry.lang==='en'?'selected':''}>EN</option>
+          <option value="de" ${entry.lang==='de'?'selected':''}>DE</option>
+          <option value="fr" ${entry.lang==='fr'?'selected':''}>FR</option>
+          <option value="it" ${entry.lang==='it'?'selected':''}>IT</option>
+          <option value="es" ${entry.lang==='es'?'selected':''}>ES</option>
+          <option value="pt" ${entry.lang==='pt'?'selected':''}>PT</option>
+          <option value="ja" ${entry.lang==='ja'?'selected':''}>JA</option>
+          <option value="ko" ${entry.lang==='ko'?'selected':''}>KO</option>
+          <option value="ru" ${entry.lang==='ru'?'selected':''}>RU</option>
+        </select>
+        <button class="remove-entry" onclick="removeEntry(${i})">&times;</button>
+      </div>`;
+  });
+
   mc.innerHTML = `
     <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
       <div class="modal">
@@ -491,31 +568,94 @@ function openBinderEditor(shelfKey, row, col, binderIdx) {
         <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px">
           ${SHELF_LABELS[shelfKey]} &mdash; Zeile ${row+1}, Spalte ${col+1}, Ordner ${binderIdx+1}
         </p>
-        <label>Sets in diesem Ordner:</label>
-        <textarea id="binderInput" placeholder="z.B. mh3, mh3:de&#10;oder leer lassen">${currentValue}</textarea>
-        <p style="font-size:0.75rem;color:var(--text-muted);margin-top:4px">
-          Komma-getrennt. Format: <code>set</code> oder <code>set:sprache</code> (z.B. <code>grn</code>, <code>mh3:en</code>)
-        </p>
-        <div id="binderSearchResults" style="margin-top:8px"></div>
+        <div class="entry-rows" id="entryRows">${rowsHtml}</div>
+        <div class="add-entry-btn" onclick="addEntry()">+ Set hinzuf&uuml;gen</div>
         <div class="modal-actions">
-          <button class="btn-danger" onclick="clearBinder('${shelfKey}',${row},${col},${binderIdx})">Leeren</button>
+          <button class="btn-danger" onclick="clearAndSaveBinder()">Leeren</button>
           <button class="btn-secondary" onclick="closeModal()">Abbrechen</button>
-          <button class="btn-primary" onclick="saveBinder('${shelfKey}',${row},${col},${binderIdx})">Speichern</button>
+          <button class="btn-primary" onclick="saveBinderFromModal()">Speichern</button>
         </div>
       </div>
     </div>`;
 }
 
-function saveBinder(shelfKey, row, col, binderIdx) {
-  const input = document.getElementById('binderInput').value.trim();
-  const entries = input ? input.split(',').map(s => s.trim().toLowerCase()).filter(s => s) : [];
-  shelfConfig[shelfKey].grid[row][col][binderIdx] = entries;
+function addEntry() {
+  modalState.entries.push({ set: '', lang: 'all' });
+  renderModal();
+  // Focus the new input
+  setTimeout(() => {
+    const idx = modalState.entries.length - 1;
+    const inp = document.getElementById('setInput' + idx);
+    if (inp) { inp.focus(); showSetDropdown(idx); }
+  }, 50);
+}
+
+function removeEntry(idx) {
+  modalState.entries.splice(idx, 1);
+  renderModal();
+}
+
+function updateEntryLang(idx, lang) {
+  modalState.entries[idx].lang = lang;
+}
+
+function showSetDropdown(idx) {
+  filterSetDropdown(idx);
+}
+
+function filterSetDropdown(idx) {
+  const input = document.getElementById('setInput' + idx);
+  const dropdown = document.getElementById('setDropdown' + idx);
+  if (!input || !dropdown) return;
+
+  const query = input.value.trim().toLowerCase();
+  // Show all if query is short, otherwise filter
+  let matches = allScryfallSets;
+  if (query.length >= 2) {
+    matches = allScryfallSets.filter(s =>
+      s.name.toLowerCase().includes(query) || s.code.toLowerCase().includes(query)
+    );
+  }
+  matches = matches.slice(0, 12);
+
+  if (matches.length === 0) { dropdown.style.display = 'none'; return; }
+
+  dropdown.innerHTML = matches.map(s => `
+    <div class="set-dropdown-item" onmousedown="selectSet(${idx}, '${s.code}')">
+      <img src="${s.icon_svg_uri}" alt="" onerror="this.style.display='none'">
+      <span>${esc(s.name)}</span>
+      <span class="code">${s.code}</span>
+    </div>
+  `).join('');
+  dropdown.style.display = 'block';
+
+  // Close on blur (with delay so click fires first)
+  input.onblur = () => setTimeout(() => { dropdown.style.display = 'none'; }, 200);
+}
+
+function selectSet(idx, code) {
+  modalState.entries[idx].set = code;
+  const info = setInfoCache[resolveSetCode(code)];
+  const input = document.getElementById('setInput' + idx);
+  if (input) input.value = info ? `${info.name} (${code.toUpperCase()})` : code.toUpperCase();
+  input.dataset.setCode = code;
+  const dropdown = document.getElementById('setDropdown' + idx);
+  if (dropdown) dropdown.style.display = 'none';
+}
+
+function saveBinderFromModal() {
+  const { shelfKey, row, col, binderIdx, entries } = modalState;
+  const result = entries
+    .filter(e => e.set)
+    .map(e => e.lang === 'all' ? e.set.toLowerCase() : `${e.set.toLowerCase()}:${e.lang}`);
+  shelfConfig[shelfKey].grid[row][col][binderIdx] = result;
   saveConfig();
   renderShelves();
   closeModal();
 }
 
-function clearBinder(shelfKey, row, col, binderIdx) {
+function clearAndSaveBinder() {
+  const { shelfKey, row, col, binderIdx } = modalState;
   shelfConfig[shelfKey].grid[row][col][binderIdx] = [];
   saveConfig();
   renderShelves();
