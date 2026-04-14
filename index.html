@@ -290,7 +290,7 @@
   <div class="nav-links">
     <button id="nav-config" onclick="showView('config')">Regale</button>
     <button id="nav-upload" class="active" onclick="showView('upload')">Bestellung</button>
-    <button id="nav-viewer" style="display:none" onclick="showView('viewer');renderCard()">Karten</button>
+    <button id="nav-viewer" style="display:none" onclick="showingTransition=needsShelfTransition(currentIndex);showView('viewer');renderCard()">Karten</button>
   </div>
 </nav>
 
@@ -896,11 +896,23 @@ function renderOrderTable() {
 
 function startPicking() {
   currentIndex = 0;
+  showingTransition = needsShelfTransition(0);
   showView('viewer');
   renderCard();
 }
 
 // ===================== CARD RENDERING =====================
+// Check if we need to show a shelf transition screen before this card
+function needsShelfTransition(idx) {
+  if (idx < 0 || idx >= sortedCards.length) return false;
+  const card = sortedCards[idx];
+  const prev = idx > 0 ? sortedCards[idx - 1] : null;
+  return !prev || prev.shelf !== card.shelf;
+}
+
+// showTransition: true = show the interstitial, false = show the card
+let showingTransition = false;
+
 function renderCard() {
   const container = document.getElementById('viewerContent');
   if (currentIndex >= sortedCards.length) {
@@ -913,8 +925,29 @@ function renderCard() {
   }
 
   const card = sortedCards[currentIndex];
-  const prevCard = currentIndex > 0 ? sortedCards[currentIndex - 1] : null;
-  const shelfChanged = !prevCard || prevCard.shelf !== card.shelf;
+
+  // Show shelf transition as its own screen
+  if (showingTransition && needsShelfTransition(currentIndex)) {
+    let label, sub;
+    if (card.shelf !== 'unknown') {
+      label = SHELF_LABELS[card.shelf];
+      sub = '';
+    } else {
+      label = 'Sonstige Karten';
+      sub = '(nicht zugeordnet)';
+    }
+    container.innerHTML = `
+      <div class="shelf-transition" style="margin-top:60px;padding:40px 20px">
+        <h3 style="font-size:1.4rem">&#8594; Wechsel zu: ${label}</h3>
+        ${sub ? '<p style="color:var(--text-muted)">'+sub+'</p>' : ''}
+      </div>
+      <div class="nav-arrows" style="margin-top:24px">
+        <button onclick="navigateBack()" ${currentIndex===0?'disabled':''}>&#8592;</button>
+        <span class="progress">${currentIndex + 1} / ${sortedCards.length}</span>
+        <button onclick="showingTransition=false;renderCard()">&#8594;</button>
+      </div>`;
+    return;
+  }
 
   const sCode = card.scryfallSet || card.edition;
   const langCode = LANG_CODES[card.language.toLowerCase()] || 'en';
@@ -927,18 +960,7 @@ function renderCard() {
   const setIcon = setInfo ? setInfo.icon : '';
   const flag = LANG_FLAGS[card.language.toLowerCase()] || '';
 
-  const shelfCounts = {};
-  sortedCards.forEach(c => { shelfCounts[c.shelf] = (shelfCounts[c.shelf] || 0) + 1; });
-
   let html = '';
-
-  if (shelfChanged) {
-    if (card.shelf !== 'unknown') {
-      html += `<div class="shelf-transition"><h3>&#8594; Wechsel zu: ${SHELF_LABELS[card.shelf]}</h3></div>`;
-    } else if (prevCard && prevCard.shelf !== 'unknown') {
-      html += `<div class="shelf-transition"><h3>&#8594; Sonstige Karten (nicht zugeordnet)</h3></div>`;
-    }
-  }
 
   if (card.shelf !== 'unknown') {
     html += `<div class="shelf-indicator">
@@ -985,8 +1007,33 @@ function renderCard() {
 }
 
 function navigate(delta) {
-  currentIndex += delta;
+  if (delta > 0) {
+    // Forward: advance index, check if new card needs transition
+    currentIndex += 1;
+    if (currentIndex < 0) currentIndex = 0;
+    showingTransition = needsShelfTransition(currentIndex);
+  } else {
+    // Back: if showing transition, just dismiss it; otherwise go back
+    if (showingTransition) {
+      // Go to previous card
+      currentIndex -= 1;
+      if (currentIndex < 0) currentIndex = 0;
+      showingTransition = false;
+    } else {
+      currentIndex -= 1;
+      if (currentIndex < 0) currentIndex = 0;
+      showingTransition = false;
+    }
+  }
+  renderCard();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function navigateBack() {
+  // From transition screen: go to previous card
+  currentIndex -= 1;
   if (currentIndex < 0) currentIndex = 0;
+  showingTransition = false;
   renderCard();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
