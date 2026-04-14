@@ -311,7 +311,6 @@ let shelfConfig = {
 let sortedCards = [];
 let currentIndex = 0;
 let setInfoCache = {};
-let ckmToScryfall = {};
 
 const LANG_FLAGS = {
   'english':'\u{1F1EC}\u{1F1E7}','german':'\u{1F1E9}\u{1F1EA}','french':'\u{1F1EB}\u{1F1F7}',
@@ -363,11 +362,8 @@ async function fetchAllSets() {
   } catch (e) { console.error('Failed to fetch sets:', e); }
 }
 
-function resolveSetCode(ckmCode) {
-  const lower = ckmCode.toLowerCase();
-  if (setInfoCache[lower]) return lower;
-  if (ckmToScryfall[lower]) return ckmToScryfall[lower];
-  return lower;
+function resolveSetCode(code) {
+  return code.toLowerCase();
 }
 
 // ===================== CONFIG =====================
@@ -396,10 +392,6 @@ function ensureGrid(shelf) {
 }
 
 async function loadConfig() {
-  try {
-    const resp = await fetch('ckm-mapping.json?t=' + Date.now());
-    if (resp.ok) ckmToScryfall = await resp.json();
-  } catch (e) {}
   try {
     const resp = await fetch('shelves.json?t=' + Date.now());
     if (resp.ok) {
