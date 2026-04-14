@@ -868,8 +868,12 @@ function renderCard() {
   });
   html += '</div>';
 
-  if (shelfChanged && card.shelf !== 'unknown') {
-    html += `<div class="shelf-transition"><h3>&#8594; Wechsel zu: ${SHELF_LABELS[card.shelf]}</h3></div>`;
+  if (shelfChanged) {
+    if (card.shelf !== 'unknown') {
+      html += `<div class="shelf-transition"><h3>&#8594; Wechsel zu: ${SHELF_LABELS[card.shelf]}</h3></div>`;
+    } else if (prevCard && prevCard.shelf !== 'unknown') {
+      html += `<div class="shelf-transition"><h3>&#8594; Sonstige Karten (nicht zugeordnet)</h3></div>`;
+    }
   }
 
   if (card.shelf !== 'unknown') {
