@@ -862,11 +862,7 @@ function renderCard() {
   const shelfCounts = {};
   sortedCards.forEach(c => { shelfCounts[c.shelf] = (shelfCounts[c.shelf] || 0) + 1; });
 
-  let html = '<div class="summary-bar">';
-  ['hauptregal','commander','special','unknown'].forEach(s => {
-    if (shelfCounts[s]) html += `<span class="summary-item ${s}">${SHELF_LABELS[s]||'Unbekannt'}: ${shelfCounts[s]}</span>`;
-  });
-  html += '</div>';
+  let html = '';
 
   if (shelfChanged) {
     if (card.shelf !== 'unknown') {
