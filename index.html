@@ -85,8 +85,9 @@
   .binder-slot.filled { background: var(--accent2); border: 1px solid rgba(255,255,255,0.15); }
   .binder-slot:hover { transform: scale(1.05); z-index: 2; }
   .binder-slot .binder-label {
-    font-weight: 600; font-size: 0.7rem; line-height: 1.1;
-    word-break: break-all; overflow: hidden;
+    font-weight: 600; font-size: 0.55rem; line-height: 1.15;
+    word-break: break-word; overflow: hidden; text-overflow: ellipsis;
+    max-height: 100%; width: 100%;
   }
   .binder-slot .binder-sub { font-size: 0.55rem; color: var(--text-muted); margin-top: 1px; }
   .binder-slot .binder-order {
